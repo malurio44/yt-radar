@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<style>html{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>YT 레이더</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: sticky header + filter strip, then a wrapping grid of channel cards (one column on phones). */
+:root {
+  --bg: #f5f4f1; --panel: #ffffff; --panel-2: #eeece7; --line: #e1ded7;
+  --fg: #1c1b19; --muted: #6b675f; --faint: #a39e94;
+  --accent: #e8462a; --accent-soft: #fde5df; --good: #1b8f4e; --good-soft: #dff2e7;
+  --ai: #6d4fe0; --ai-soft: #ebe6ff; --glob: #2a6fd6; --glob-soft: #e2ecfb; --bar: #d3cec4;
+  --font: "IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121211; --panel: #1b1b19; --panel-2: #252421; --line: #302f2b;
+  --fg: #efede8; --muted: #a29e95; --faint: #6e6a63;
+  --accent: #ff6b4f; --accent-soft: #3a1e18; --good: #3fcf80; --good-soft: #15301f;
+  --ai: #a590ff; --ai-soft: #29223f; --glob: #6fa8ff; --glob-soft: #1a2638; --bar: #4a4842; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121211; --panel: #1b1b19; --panel-2: #252421; --line: #302f2b;
+  --fg: #efede8; --muted: #a29e95; --faint: #6e6a63;
+  --accent: #ff6b4f; --accent-soft: #3a1e18; --good: #3fcf80; --good-soft: #15301f;
+  --ai: #a590ff; --ai-soft: #29223f; --glob: #6fa8ff; --glob-soft: #1a2638; --bar: #4a4842; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--font); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+a { color: inherit; text-decoration: none; }
+button, select, input { font: inherit; color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1480px; margin: 0 auto; }
+
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.top .wrap { display: flex; align-items: center; gap: 8px 18px; flex-wrap: wrap; padding-block: 10px; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; letter-spacing: -.02em; color: var(--accent); }
+.brand span { color: var(--fg); }
+.tabs { display: flex; gap: 2px; }
+.tabs a { padding: 7px 12px; border-radius: 9px; font-weight: 600; color: var(--muted); }
+.tabs a:hover { background: var(--panel-2); color: var(--fg); }
+.tabs a.on { background: var(--fg); color: var(--bg); }
+.stamp { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+.filters .wrap { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding-block: 12px; border-bottom: 1px solid var(--line); }
+.f { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.f select, .search { border: 1px solid var(--line); background: var(--panel); border-radius: 9px; padding: 6px 9px; font-size: 13px; color: var(--fg); }
+.search { min-width: 0; width: 160px; }
+.seg { display: inline-flex; background: var(--panel-2); border-radius: 10px; padding: 3px; }
+.seg button { border: 0; background: none; padding: 5px 12px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
+.seg button.on { background: var(--panel); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+main .wrap { padding-block: 16px 60px; }
+.meta { color: var(--muted); font-size: 12px; margin: 0 0 12px; max-width: 80ch; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.head { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.av { width: 40px; height: 40px; border-radius: 50%; background: var(--panel-2); flex: none; object-fit: cover; display: grid; place-items: center; font-weight: 700; color: var(--muted); }
+.name { font-weight: 700; font-size: 15px; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.name:hover { text-decoration: underline; }
+.sub { color: var(--muted); font-size: 12px; }
+.grow { flex: 1; min-width: 0; }
+.rank { color: var(--faint); font-size: 12px; font-weight: 600; align-self: flex-start; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px; background: var(--panel-2); color: var(--muted); }
+.chip.fmt { background: var(--accent-soft); color: var(--accent); }
+.chip.ai { background: var(--ai-soft); color: var(--ai); }
+.chip.glob { background: var(--glob-soft); color: var(--glob); }
+.chip.hit { background: var(--good-soft); color: var(--good); }
+.big { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.mult { font-size: 30px; font-weight: 700; letter-spacing: -.03em; color: var(--accent); line-height: 1; }
+.gain { font-size: 30px; font-weight: 700; letter-spacing: -.03em; color: var(--good); line-height: 1; }
+.from { color: var(--muted); font-size: 12px; }
+.from b { color: var(--fg); }
+svg.spark { width: 100%; height: 52px; display: block; }
+.spark .b { fill: var(--bar); } .spark .b.hot { fill: var(--accent); }
+.spark .base { stroke: var(--muted); stroke-dasharray: 3 3; stroke-width: 1; fill: none; }
+.spark .line { fill: none; stroke: var(--good); stroke-width: 2; } .spark .area { fill: var(--good); opacity: .12; }
+.thumbs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.thumb { position: relative; display: block; border-radius: 8px; overflow: hidden; aspect-ratio: 4 / 3; background: var(--panel-2); max-width: 100%; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.badge { position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,.72); color: #fff; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 5px; }
+.badge.hot { background: var(--accent); }
+.foot { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--muted); font-size: 12px; }
+.up { color: var(--good); font-weight: 600; }
+.empty { text-align: center; color: var(--muted); padding: 60px 16px; max-width: 520px; margin: 0 auto; }
+.empty h3 { color: var(--fg); margin: 0 0 6px; font-size: 17px; }
+.more { display: flex; justify-content: center; margin-top: 18px; }
+.btn { border: 1px solid var(--line); background: var(--panel); padding: 8px 16px; border-radius: 9px; cursor: pointer; font-weight: 600; }
+.btn:hover { border-color: var(--muted); }
+.card { cursor: pointer; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--bg); z-index: 40;
+  border-left: 1px solid var(--line); transform: translateX(100%); transition: transform .22s ease; overflow-y: auto;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); }
+.drawer.open { transform: none; }
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 30; }
+.dr { padding: 20px 22px 60px; display: flex; flex-direction: column; gap: 16px; }
+.d-head { display: flex; gap: 14px; align-items: center; }
+.d-head .av { width: 56px; height: 56px; font-size: 20px; }
+.d-title { font-size: 21px; font-weight: 700; letter-spacing: -.02em; }
+.x { border: 0; background: none; cursor: pointer; font-size: 22px; color: var(--muted); padding: 4px 8px; border-radius: 8px; align-self: flex-start; }
+.x:hover { background: var(--panel-2); color: var(--fg); }
+.btn.small { padding: 5px 10px; font-size: 12px; display: inline-block; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 10px 12px; min-width: 0; }
+.stat .k { color: var(--muted); font-size: 11px; font-weight: 600; }
+.stat .v { font-size: 18px; font-weight: 700; letter-spacing: -.02em; margin-top: 2px; }
+.stat .s { color: var(--muted); font-size: 11px; }
+.chart { background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 12px; }
+.chart svg { width: 100%; height: 170px; display: block; }
+.chart .b { fill: var(--bar); } .chart .b.hot { fill: var(--accent); }
+.chart .base { stroke: var(--muted); stroke-dasharray: 4 3; stroke-width: 1; fill: none; }
+.chart text { fill: var(--muted); font-size: 10px; }
+.chart .grid-l { stroke: var(--fg); opacity: .08; }
+.hint { color: var(--muted); font-size: 12px; }
+.tblwrap { overflow-x: auto; }
+.vtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.vtable td, .vtable th { padding: 7px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.vtable th { color: var(--muted); font-size: 11px; font-weight: 600; }
+.vtable .r { text-align: right; white-space: nowrap; }
+.vtable .tc { width: 96px; }
+.vtable .tc span { display: block; width: 88px; aspect-ratio: 4 / 3; border-radius: 6px; overflow: hidden; background: var(--panel-2); }
+.vtable .tc img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vtable a:hover { text-decoration: underline; }
+.hotc { color: var(--accent); font-weight: 700; }
+@media (max-width: 600px) { .stats { grid-template-columns: repeat(2, 1fr); } .dr { padding-inline: 16px; } .vtable .tc { display: none; } }
+@media (max-width: 600px) {
+  .filters .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .filters .seg, .filters .search { grid-column: 1 / -1; width: 100%; }
+  .seg button { flex: 1; }
+  .f { flex-direction: column; align-items: stretch; gap: 3px; min-width: 0; }
+  .f select { width: 100%; min-width: 0; }
+  .stamp { margin-left: 0; width: 100%; }
+}
+@media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s; } .card:hover { border-color: var(--faint); } }
+</style>
+
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="16" cy="16" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="16" cy="16" r="2.5" fill="currentColor"/><path d="M16 16 L28 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+    <span>YT 레이더</span>
+  </div>
+  <nav class="tabs"><a href="#views" id="t-views">조회수 급상승</a><a href="#subs" id="t-subs">구독자 급상승</a></nav>
+  <div class="stamp num" id="stamp">불러오는 중…</div>
+</div></header>
+
+<section class="filters"><div class="wrap">
+  <div class="seg" id="fmt" data-only="views"><button data-v="any" class="on">전체</button><button data-v="short">쇼츠</button><button data-v="long">롱폼</button></div>
+  <label class="f">지역 <select id="mkt">
+    <option value="">전체</option><option value="kr">한국</option>
+    <optgroup label="해외"><option value="global">해외 전체</option><option value="en">영어권</option><option value="ja">일본어</option>
+    <option value="indic">인도</option><option value="es">스페인어</option><option value="pt">포르투갈어</option><option value="other">기타 해외</option></optgroup>
+  </select></label>
+  <label class="f">장르 <select id="tag"><option value="">전체</option></select></label>
+  <label class="f">구독자 <select id="maxSubs">
+    <option value="10000">1만 이하</option><option value="30000">3만 이하</option><option value="100000" selected>10만 이하</option><option value="300000">30만 이하</option>
+  </select></label>
+  <label class="f">AI <select id="ai"><option value="hide" selected>AI 채널 숨기기</option><option value="all">전부 보기</option><option value="only">AI만</option></select></label>
+  <label class="f" data-only="views">최근 조회수 <select id="minRecent">
+    <option value="10000">1만 이상</option><option value="50000">5만 이상</option><option value="100000" selected>10만 이상</option>
+    <option value="300000">30만 이상</option><option value="500000">50만 이상</option><option value="1000000">100만 이상</option>
+  </select></label>
+  <label class="f" data-only="views" title="최근 영상 10개 중 평소의 3배 이상 나온 영상 수">꾸준함 <select id="minHits">
+    <option value="2" selected>최근 10개 중 2개+ 터짐</option><option value="3">3개+ 터짐</option><option value="5">5개+ 터짐</option>
+  </select></label>
+  <label class="f" data-only="subs">기간 <select id="period"><option value="1">하루</option><option value="7" selected>7일</option><option value="30">30일</option></select></label>
+  <label class="f">정렬 <select id="sort"></select></label>
+  <input class="search" id="q" type="search" placeholder="채널 검색">
+</div></section>
+
+<main><div class="wrap" id="view"><p class="meta">불러오는 중…</p></div></main>
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-hidden="true"><div class="dr" id="dr"></div></aside>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const SORTS = {
+  views: [["b", "급상승 배수"], ["hits", "꾸준히 터지는 순"], ["g", "24시간 조회수 증가"], ["rec", "최근 조회수"]],
+  subs: [["gain", "구독자 증가 수"], ["pct", "구독자 증가율"]],
+};
+const LANG = { en: "영어", ja: "일본어", indic: "인도", es: "스페인어", pt: "포르투갈어", zh: "중국어", ar: "아랍어", ru: "러시아어", th: "태국어", id: "인도네시아어", vi: "베트남어", tr: "튀르키예어" };
+const PAGE = 60;
+let D = null, view = "views", shown = PAGE;
+const F = { fmt: "any", sort: { views: "b", subs: "gain" } };
+
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function n(v) {
+  if (v === null || v === undefined) return "–";
+  const a = Math.abs(v), f = (x) => (x >= 100 ? Math.round(x) : x.toFixed(1).replace(/\.0$/, ""));
+  if (a >= 1e8) return f(v / 1e8) + "억"; if (a >= 1e4) return f(v / 1e4) + "만"; if (a >= 1e3) return f(v / 1e3) + "천";
+  return String(Math.round(v));
+}
+function mult(v) { return v == null ? "–" : "×" + (v >= 100 ? Math.round(v) : v >= 10 ? v.toFixed(0) : v.toFixed(1)); }
+function ago(iso) {
+  if (!iso) return "–"; const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 3600) return Math.max(1, Math.round(s / 60)) + "분 전"; if (s < 86400) return Math.round(s / 3600) + "시간 전";
+  if (s < 86400 * 45) return Math.round(s / 86400) + "일 전"; return Math.round(s / 86400 / 30) + "개월 전";
+}
+function age(iso) {
+  if (!iso) return "–"; const d = (Date.now() - new Date(iso).getTime()) / 864e5;
+  return d < 60 ? Math.round(d) + "일" : d < 365 ? Math.round(d / 30) + "개월" : (d / 365).toFixed(1).replace(/\.0$/, "") + "년";
+}
+const chUrl = (id, c) => (c.h ? "https://www.youtube.com/" + c.h : "https://www.youtube.com/channel/" + id);
+const vUrl = (id, short) => (short ? "https://www.youtube.com/shorts/" + id : "https://www.youtube.com/watch?v=" + id);
+function img(key, cls, alt) { const src = key && D.img[key]; return src ? `<img class="${cls}" src="${src}" alt="${esc(alt || "")}" loading="lazy">` : ""; }
+function avatar(id, c) { return img(c.a, "av", "") || `<div class="av">${esc((c.t || "?").slice(0, 1))}</div>`; }
+function region(c) {
+  if (c.k) return "";
+  const label = [LANG[c.l], c.c].filter(Boolean).join(" · ") || "해외";
+  return `<span class="chip glob">${esc(label)}</span>`;
+}
+
+/* ---------- filtering ---------- */
+function passCommon(id, c) {
+  const m = $("#mkt").value;
+  if (m === "kr" && !c.k) return false;
+  if (m === "global" && c.k) return false;
+  if (["en", "ja", "indic", "es", "pt"].includes(m) && (c.k || c.l !== m)) return false;
+  if (m === "other" && (c.k || ["en", "ja", "indic", "es", "pt"].includes(c.l))) return false;
+  const t = $("#tag").value;
+  if (t) {
+    const names = t.startsWith("group:") ? (D.groups[t.slice(6)] || []) : [t];
+    if (!c.tags.some((x) => names.includes(x))) return false;
+  }
+  if (c.s != null && c.s > +$("#maxSubs").value) return false;
+  const ai = $("#ai").value;
+  if (ai === "hide" && c.ai) return false;
+  if (ai === "only" && !c.ai) return false;
+  const q = $("#q").value.trim().toLowerCase();
+  if (q && !((c.t || "").toLowerCase().includes(q) || (c.h || "").toLowerCase().includes(q))) return false;
+  return true;
+}
+
+function viewRows() {
+  const minRecent = +$("#minRecent").value, minHits = +$("#minHits").value;
+  let rows = D.views.filter((r) => {
+    const c = D.channels[r.id];
+    if (F.fmt === "short" && r.f !== 1) return false;
+    if (F.fmt === "long" && r.f !== 0) return false;
+    return c && passCommon(r.id, c) && (r.rec || 0) >= minRecent && (r.hits || 0) >= minHits;
+  });
+  if (F.fmt === "any") {  // one card per channel: its stronger format
+    const best = {};
+    for (const r of rows) if (!best[r.id] || r.b > best[r.id].b) best[r.id] = r;
+    rows = Object.values(best);
+  }
+  const k = F.sort.views;
+  return rows.sort((a, b) => (b[k] || 0) - (a[k] || 0) || b.b - a.b);
+}
+
+function subsGain(c, period) {
+  const s = c.snaps.filter((x) => x[1] != null);
+  if (s.length < 2) return null;
+  const last = s[s.length - 1], lastDay = new Date(last[0]);
+  const target = new Date(lastDay.getTime() - period * 864e5);
+  let ref = s[0];
+  for (const x of s) { if (new Date(x[0]) <= target) ref = x; }
+  if (ref === last) return null;
+  const span = Math.round((lastDay - new Date(ref[0])) / 864e5);
+  return { gain: last[1] - ref[1], pct: ref[1] ? (last[1] - ref[1]) / ref[1] : null, from: ref[1], to: last[1], span };
+}
+
+function subsRows() {
+  const period = +$("#period").value;
+  const rows = [];
+  for (const id of D.subs) {
+    const c = D.channels[id];
+    if (!c || !passCommon(id, c)) continue;
+    const g = subsGain(c, period);
+    if (g && g.gain > 0) rows.push({ id, ...g });
+  }
+  const k = F.sort.subs;
+  return rows.sort((a, b) => (b[k] || 0) - (a[k] || 0));
+}
+
+/* ---------- drawing ---------- */
+function bars(list, base) {
+  const vs = list.filter((v) => v[0] != null);
+  if (!vs.length) return "";
+  const W = 320, H = 52, lg = (x) => Math.log10(Math.max(1, x));
+  const vals = vs.map((v) => lg(v[0]));
+  const lo = Math.min(...vals, base ? lg(base) : 99) - 0.3, hi = Math.max(...vals) + 0.05;
+  const y = (x) => H - ((lg(x) - lo) / (hi - lo || 1)) * (H - 2), bw = W / vs.length;
+  let s = vs.map((v, i) => { const yy = y(v[0]); return `<rect class="b${(v[1] || 0) >= 3 ? " hot" : ""}" x="${(i * bw + 1).toFixed(1)}" y="${yy.toFixed(1)}" width="${Math.max(1, bw - 2).toFixed(1)}" height="${(H - yy).toFixed(1)}" rx="1.5"></rect>`; }).join("");
+  if (base) s += `<line class="base" x1="0" x2="${W}" y1="${y(base).toFixed(1)}" y2="${y(base).toFixed(1)}"/>`;
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${s}</svg>`;
+}
+function line(snaps) {
+  const p = snaps.filter((x) => x[1] != null);
+  if (p.length < 2) return "";
+  const W = 320, H = 46, lo = Math.min(...p.map((x) => x[1])), hi = Math.max(...p.map((x) => x[1]));
+  const X = (i) => (i / (p.length - 1)) * W, Y = (v) => H - 3 - ((v - lo) / (hi - lo || 1)) * (H - 6);
+  const d = p.map((x, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(x[1]).toFixed(1)}`).join(" ");
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="area" d="${d} L${W},${H} L0,${H} Z"/><path class="line" d="${d}"/></svg>`;
+}
+function head(id, c, i) {
+  return `<div class="head">${avatar(id, c)}<div class="grow">
+      <a class="name" href="${chUrl(id, c)}" target="_blank" rel="noopener">${esc(c.t)}</a>
+      <div class="sub num">구독 ${n(c.s)} · 개설 ${age(c.born)}</div></div><span class="rank num">${i + 1}</span></div>`;
+}
+function viewCard(r, i) {
+  const c = D.channels[r.id];
+  const tags = c.tags.slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join("");
+  return `<article class="card" data-ch="${esc(r.id)}" data-f="${r.f}">${head(r.id, c, i)}
+    <div class="chips"><span class="chip fmt">${r.f ? "쇼츠" : "롱폼"}</span>${region(c)}${c.ai ? '<span class="chip ai">AI</span>' : ""}<span class="chip hit">최근 ${r.hn}개 중 ${r.hits}개 터짐</span>${tags}</div>
+    <div class="big"><span class="mult num">${mult(r.b)}</span><span class="from num">평소 <b>${n(r.base)}</b> → 최근 5개 <b>${n(r.rec)}</b></span></div>
+    ${bars(r.bars, r.base)}
+    <div class="thumbs">${r.best.map((v) => `<a class="thumb" href="${vUrl(v[0], r.f)}" target="_blank" rel="noopener" title="${esc(v[3])}">${img("v_" + v[0], "", v[3])}<span class="badge${v[1] >= 5 ? " hot" : ""} num">${mult(v[1])} · ${n(v[2])}</span></a>`).join("")}</div>
+    <div class="foot num">${r.g ? `<span class="up">24h +${n(r.g)}</span>` : ""}<span>30일 ${r.up || 0}개</span><span>마지막 업로드 ${ago(r.last)}</span></div>
+  </article>`;
+}
+function subsCard(r, i) {
+  const c = D.channels[r.id];
+  const tags = c.tags.slice(0, 3).map((t) => `<span class="chip">${esc(t)}</span>`).join("");
+  const pct = r.pct != null ? `+${(r.pct * 100).toFixed(r.pct < 0.1 ? 1 : 0)}%` : "";
+  return `<article class="card" data-ch="${esc(r.id)}">${head(r.id, c, i)}
+    <div class="chips">${region(c)}${c.ai ? '<span class="chip ai">AI</span>' : ""}${tags}</div>
+    <div class="big"><span class="gain num">+${n(r.gain)}</span><span class="from num"><b>${pct}</b> · ${r.span}일 동안 (${n(r.from)} → ${n(r.to)})</span></div>
+    ${line(c.snaps)}
+    <div class="thumbs">${c.top.map((v) => `<a class="thumb" href="${vUrl(v[0], v[2])}" target="_blank" rel="noopener">${img("v_" + v[0], "", "")}<span class="badge num">${n(v[1])}${v[3] ? " · " + mult(v[3]) : ""}</span></a>`).join("")}</div>
+  </article>`;
+}
+
+function bigChart(vs) {
+  vs = vs.filter((v) => v[3] != null).slice(-70);
+  if (!vs.length) return '<p class="hint">영상이 없어요.</p>';
+  const W = 700, H = 170, pad = 22, lg = (x) => Math.log10(Math.max(1, x));
+  const vals = vs.map((v) => lg(v[3])), bases = vs.map((v) => (v[6] ? lg(v[6]) : null)).filter((x) => x !== null);
+  const lo = Math.floor(Math.min(...vals, ...bases)), hi = Math.max(...vals, ...bases) + 0.05;
+  const y = (x) => H - pad - ((lg(x) - lo) / (hi - lo || 1)) * (H - pad - 6), bw = W / vs.length;
+  let s = "";
+  for (let p = Math.ceil(lo); p <= hi; p++) { const yy = y(10 ** p); s += `<line class="grid-l" x1="0" x2="${W}" y1="${yy}" y2="${yy}"/><text x="2" y="${yy - 3}">${n(10 ** p)}</text>`; }
+  s += vs.map((v, i) => { const yy = y(v[3]); return `<a href="${vUrl(v[0], v[4])}" target="_blank" rel="noopener"><rect class="b${(v[5] || 0) >= 3 ? " hot" : ""}" x="${(i * bw + 1).toFixed(1)}" y="${yy.toFixed(1)}" width="${Math.max(1, bw - 2).toFixed(1)}" height="${(H - pad - yy).toFixed(1)}" rx="2"><title>${esc(v[1])}\n${n(v[3])}회 · ${mult(v[5])} · ${v[2]}</title></rect></a>`; }).join("");
+  const pts = vs.map((v, i) => (v[6] ? `${(i * bw + bw / 2).toFixed(1)},${y(v[6]).toFixed(1)}` : null)).filter(Boolean);
+  if (pts.length > 1) s += `<polyline class="base" points="${pts.join(" ")}"/>`;
+  s += `<text x="0" y="${H - 4}">${esc(vs[0][2])}</text><text x="${W}" y="${H - 4}" text-anchor="end">최근</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${s}</svg><div class="hint">막대 = 영상별 조회수(로그 스케일), 점선 = 그 영상 직전의 평소 조회수, 주황 = 평소의 3배 이상. 막대를 누르면 영상이 열려요.</div>`;
+}
+
+function openCh(id, fpref) {
+  const c = D && D.channels[id];
+  if (!c) return;
+  const has1 = !!c.sc["1"], has0 = !!c.sc["0"];
+  let f = fpref != null ? String(fpref) : has1 && has0 ? ((c.sc["1"][2] || 0) >= (c.sc["0"][2] || 0) ? "1" : "0") : has1 ? "1" : "0";
+  if (!c.sc[f]) f = has1 ? "1" : "0";
+  const sc = c.sc[f] || [];
+  const vids = c.det.filter((v) => String(v[4]) === f);
+  const g = subsGain(c, 7);
+  const tags = c.tags.map((t) => `<span class="chip">${esc(t)}</span>`).join("");
+  $("#dr").innerHTML = `
+    <div class="d-head">${avatar(id, c)}
+      <div class="grow"><div class="d-title">${esc(c.t)}</div>
+        <div class="sub num">${esc(c.h || "")} · 개설 ${age(c.born)} · 영상 ${n(c.vc)}개</div></div>
+      <button class="x" id="dx" aria-label="닫기">✕</button></div>
+    <div class="chips"><a class="btn small" href="${chUrl(id, c)}" target="_blank" rel="noopener">유튜브에서 열기 ↗</a></div>
+    <div class="chips">${region(c)}${c.ai ? '<span class="chip ai">AI</span>' : ""}${tags}</div>
+    ${has1 && has0 ? `<div class="seg" id="dfmt"><button data-v="1" class="${f === "1" ? "on" : ""}">쇼츠</button><button data-v="0" class="${f === "0" ? "on" : ""}">롱폼</button></div>` : ""}
+    <div class="stats num">
+      <div class="stat"><div class="k">구독자</div><div class="v">${n(c.s)}</div><div class="s">${g ? `${g.gain >= 0 ? "+" : ""}${n(g.gain)} (${g.span}일)` : "변화 기록 쌓는 중"}</div></div>
+      <div class="stat"><div class="k">급상승 배수</div><div class="v" style="color:var(--accent)">${mult(sc[2])}</div><div class="s">최근 5개 ÷ 이전</div></div>
+      <div class="stat"><div class="k">평소 조회수</div><div class="v">${n(sc[0])}</div><div class="s">최근 5개 중앙값 ${n(sc[1])}</div></div>
+      <div class="stat"><div class="k">최근 30일</div><div class="v">${sc[5] ?? 0}개</div><div class="s">${sc[3] != null ? `최근 ${sc[4]}개 중 ${sc[3]}개 터짐` : ""}</div></div>
+    </div>
+    <div class="chart">${bigChart([...vids].reverse())}</div>
+    <div class="tblwrap"><table class="vtable num"><thead><tr><th class="tc"></th><th>제목</th><th class="r">조회수</th><th class="r">배수</th><th class="r">24h</th></tr></thead><tbody>
+      ${vids.map((v) => `<tr>
+        <td class="tc"><a href="${vUrl(v[0], v[4])}" target="_blank" rel="noopener"><span><img data-vid="${esc(v[0])}" alt="" loading="lazy"></span></a></td>
+        <td><a href="${vUrl(v[0], v[4])}" target="_blank" rel="noopener">${esc(v[1])}</a><div class="sub">${esc(v[2])}</div></td>
+        <td class="r">${n(v[3])}</td><td class="r${(v[5] || 0) >= 3 ? " hotc" : ""}">${mult(v[5])}</td><td class="r">${v[7] ? "+" + n(v[7]) : "–"}</td></tr>`).join("")}
+    </tbody></table></div>
+    ${c.desc ? `<details><summary class="hint">채널 소개</summary><p class="hint" style="white-space:pre-wrap">${esc(c.desc)}</p></details>` : ""}`;
+  // thumbnails: embedded ones when we have them, otherwise straight from YouTube (works on a normal website)
+  document.querySelectorAll("#dr img[data-vid]").forEach((im) => {
+    const vid = im.dataset.vid, emb = D.img["v_" + vid];
+    im.addEventListener("error", () => im.remove(), { once: true });
+    im.src = emb || `https://i.ytimg.com/vi/${vid}/default.jpg`;
+  });
+  $("#dx").onclick = closeCh;
+  const seg = $("#dfmt");
+  if (seg) seg.onclick = (e) => { const b = e.target.closest("button"); if (b) openCh(id, b.dataset.v); };
+  $("#drawer").classList.add("open");
+  $("#drawer").setAttribute("aria-hidden", "false");
+  $("#scrim").hidden = false;
+  if (fpref == null) $("#drawer").scrollTop = 0;
+}
+function closeCh() {
+  $("#drawer").classList.remove("open");
+  $("#drawer").setAttribute("aria-hidden", "true");
+  $("#scrim").hidden = true;
+}
+
+function render() {
+  for (const el of document.querySelectorAll("[data-only]")) el.hidden = el.dataset.only !== view;
+  $("#t-views").classList.toggle("on", view === "views");
+  $("#t-subs").classList.toggle("on", view === "subs");
+  const box = $("#view");
+  if (!D) return;
+  const rows = view === "views" ? viewRows() : subsRows();
+  if (!rows.length) {
+    box.innerHTML = view === "subs" && D.history_days < 2
+      ? `<div class="empty"><h3>구독자 기록을 쌓는 중이에요</h3><p>구독자 변화는 매일 찍어둔 기록끼리 비교해서 계산해요. 지금 ${D.history_days}일치가 있어서, 하루 더 지나면 순위가 나와요.</p></div>`
+      : `<div class="empty"><h3>조건에 맞는 채널이 없어요</h3><p>구독자 한도, 최근 조회수, 꾸준함 조건을 풀어보세요.</p></div>`;
+    return;
+  }
+  const note = view === "views"
+    ? "평소보다 최근 영상이 훨씬 잘 나오는 작은 채널. 배수 = 최근 5개 영상 조회수 중앙값 ÷ 그 전 영상들 중앙값. 막대는 최근 영상들(주황 = 평소의 3배 이상)."
+    : "기간 동안 늘어난 구독자 수 순위. 유튜브가 구독자 수를 반올림해서 주기 때문에 작은 변화는 오차가 있어요.";
+  box.innerHTML = `<p class="meta">${note} 채널 ${rows.length}개.</p><div class="grid">${rows.slice(0, shown).map(view === "views" ? viewCard : subsCard).join("")}</div>
+    ${rows.length > shown ? `<div class="more"><button class="btn" id="more">더 보기 (${rows.length - shown}개 남음)</button></div>` : ""}`;
+  const m = $("#more");
+  if (m) m.onclick = () => { shown += PAGE; render(); };
+}
+
+function setSorts() {
+  $("#sort").innerHTML = SORTS[view].map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+  $("#sort").value = F.sort[view];
+}
+function go(v) { view = v === "subs" ? "subs" : "views"; shown = PAGE; setSorts(); render(); }
+
+document.querySelectorAll("select, #q").forEach((el) => el.addEventListener(el.id === "q" ? "input" : "change", () => {
+  if (el.id === "sort") F.sort[view] = el.value;
+  shown = PAGE; render();
+}));
+$("#fmt").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  F.fmt = b.dataset.v; document.querySelectorAll("#fmt button").forEach((x) => x.classList.toggle("on", x === b));
+  shown = PAGE; render();
+});
+window.addEventListener("hashchange", () => go(location.hash.slice(1)));
+document.addEventListener("click", (e) => {
+  if (e.target.closest("a") || e.target.closest("button")) return;
+  const card = e.target.closest(".card[data-ch]");
+  if (card) openCh(card.dataset.ch, card.dataset.f != null ? card.dataset.f : null);
+});
+$("#scrim").addEventListener("click", closeCh);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCh(); });
+
+go(location.hash.slice(1));
+fetch("data.json").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((d) => {
+  D = d;
+  $("#stamp").textContent = "업데이트 " + new Date(d.generated).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  let html = '<option value="">전체</option>';
+  for (const [g, names] of Object.entries(d.groups)) {
+    html += `<optgroup label="${esc(g)}"><option value="group:${esc(g)}">${esc(g)} 전체</option>${names.map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join("")}</optgroup>`;
+  }
+  $("#tag").innerHTML = html;
+  render();
+}).catch(() => {
+  $("#stamp").textContent = "";
+  $("#view").innerHTML = '<div class="empty"><h3>데이터를 불러오지 못했어요</h3><p>잠시 뒤에 새로고침해 보세요.</p></div>';
+});
+</script>
+
+</body>
+</html>
